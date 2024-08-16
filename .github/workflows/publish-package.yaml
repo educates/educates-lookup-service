@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-workshops:
+  publish-package:
     runs-on: ubuntu-latest
 
     steps:
