@@ -7,7 +7,7 @@
 #! of the application.
 
 applicationNamespace:
-  name: "educates-lookup"
+  name: "educates-lookup-service"
   exists: false
 
 configurationNamespace:
