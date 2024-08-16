@@ -62,19 +62,14 @@ spec:
           runAsUser: 1001
         ports:
         - containerPort: 8080
-        volumeMounts:
-        - name: cluster-access-token
-          mountPath: /opt/cluster-access-token
         #@ if caCertificateSecretName:
+        volumeMounts:
         - name: workshop-ca-trust
           mountPath: /etc/pki/ca-trust
           readOnly: true
         #@ end
-      volumes:
-      - name: cluster-access-token
-        secret:
-          secretName: remote-access-token
       #@ if caCertificateSecretName:
+      volumes:
       - name: workshop-ca
         secret:
           secretName: #@ caCertificateSecretName
