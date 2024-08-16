@@ -1,0 +1,56 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish-workshops:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Carvel tools
+        shell: bash
+        run: curl -L https://carvel.dev/install.sh | bash
+
+      - name: Calculate variables
+        shell: bash
+        run: |
+          REPOSITORY_OWNER=${{github.repository_owner}}
+          echo "REPOSITORY_OWNER=${REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
+          echo "REPOSITORY_TAG=${GITHUB_REF##*/}" >>${GITHUB_ENV}
+          echo "REPOSITORY_SHA_TAG=sha-${GITHUB_SHA::7}" >>${GITHUB_ENV}
+
+      - name: Create publish values file
+        shell: bash
+        run: |
+          cat <<EOF > publish-values.yaml
+          clusterIngress:
+            caCertificateRef:
+              namespace: default
+              name: ca-certificate
+          EOF
+
+      - name: Publish package bundle
+        shell: bash
+        run: |
+          # Create images lock file. We use a sample values file to pass validations
+          # We properly rewrite references to images via kbld
+          ytt --data-values-file publish-values.yaml -f bundle/config | \
+            kbld -f - --imgpkg-lock-output bundle/.imgpkg/images.yml
+          # Push the bundle to the registry
+          imgpkg push \
+            -b ghcr.io/${{env.REPOSITORY_OWNER}}/educates-lookup-service-installer:${{env.REPOSITORY_TAG}} \
+            --registry-username=${{github.actor}} \
+            --registry-password=${{secrets.GITHUB_TOKEN}} \
+            -f bundle

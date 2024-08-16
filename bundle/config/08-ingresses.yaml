@@ -1,0 +1,33 @@
+#@ load("@ytt:data", "data")
+
+#@ applicationHostname = "{}.{}".format(data.values.applicationIngress.hostnamePrefix, data.values.clusterIngress.domain)
+
+#@ tlsCertificateSecretName = data.values.clusterIngress.tlsCertificateRef.name
+#@ ingressClassName = getattr(data.values.clusterIngress, "class")
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lookup-service
+  namespace: #@ data.values.applicationNamespace.name
+spec:
+  #@ if ingressClassName:
+  ingressClassName: #@ ingressClassName
+  #@ end
+  rules:
+  - host: #@ applicationHostname
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: lookup-service
+            port:
+              number: 8080
+#@ if tlsCertificateSecretName:
+  tls:
+  - hosts:
+    - #@ applicationHostname
+    secretName: #@ tlsCertificateSecretName
+#@ end

@@ -1,0 +1,83 @@
+#@ load("@ytt:data", "data")
+
+#@ if data.values.applicationImage.namespace:
+#@ applicationImage = "{}/{}/{}:{}".format(data.values.applicationImage.registry, data.values.applicationImage.namespace, data.values.applicationImage.name, data.values.applicationImage.tag)
+#@ else:
+#@ applicationImage = "{}/{}/{}:{}".format(data.values.applicationImage.registry, data.values.applicationImage.name, data.values.applicationImage.tag)
+#@ end
+
+#! Cheating for the workshop basename and assume is hosted by same repository.
+
+#@ if data.values.applicationImage.namespace:
+#@ workshopBaseImage = "{}/{}/educates-base-environment:{}".format(data.values.applicationImage.registry, data.values.applicationImage.namespace, data.values.applicationImage.tag)
+#@ else:
+#@ workshopBaseImage = "{}/educates-base-environment:{}".format(data.values.applicationImage.registry, data.values.applicationImage.tag)
+#@ end
+
+#@ imagePullPolicy = data.values.applicationImage.pullPolicy
+
+#@ caCertificateSecretName = data.values.clusterIngress.caCertificateRef.name
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lookup-service
+  namespace: #@ data.values.applicationNamespace.name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lookup-service
+  template:
+    metadata:
+      labels:
+        app: lookup-service
+    spec:
+      serviceAccountName: lookup-service
+      #@ if caCertificateSecretName:
+      initContainers:
+      - name: ca-trust-store-initialization
+        image: #@ workshopBaseImage
+        imagePullPolicy: #@ imagePullPolicy
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: false
+          runAsUser: 0
+        command:
+        - /opt/eduk8s/sbin/setup-certificates
+        volumeMounts:
+        - name: workshop-ca
+          mountPath: /etc/pki/ca-trust/source/anchors/Cluster_Ingress_CA.pem
+          subPath: ca.crt
+        - name: workshop-ca-trust
+          mountPath: /mnt
+      #@ end
+      containers:
+      - name: lookup-service
+        image: #@ applicationImage
+        imagePullPolicy: #@ imagePullPolicy
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: cluster-access-token
+          mountPath: /opt/cluster-access-token
+        #@ if caCertificateSecretName:
+        - name: workshop-ca-trust
+          mountPath: /etc/pki/ca-trust
+          readOnly: true
+        #@ end
+      volumes:
+      - name: cluster-access-token
+        secret:
+          secretName: remote-access-token
+      #@ if caCertificateSecretName:
+      - name: workshop-ca
+        secret:
+          secretName: #@ caCertificateSecretName
+      - name: workshop-ca-trust
+        emptyDir: {}
+      #@ end

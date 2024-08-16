@@ -1,0 +1,68 @@
+#@data/values-schema
+---
+
+#! Settings for customizing namespace in which the application is deployed and
+#! what namespace it is monitoring for configuration. It is assumed that the
+#! configuration namespace will always be created distinct from the deployment
+#! of the application.
+
+applicationNamespace:
+  name: "educates-lookup"
+  exists: false
+
+configurationNamespace:
+  name: "educates-config"
+
+#! Settings for customizing the source of the application image for deployment.
+
+applicationImage:
+  #! Image registry where the application image is stored.
+  registry: "ghcr.io"
+
+  #! Namespace within image registry where the application image is stored.
+  namespace: "vmware-tanzu-labs"
+
+  #! Name of the application image.
+  name: "educates-lookup-service"
+
+  #! Image tag for the application image.
+  tag: "3.0.0-alpha.14"
+
+  #! Image pull policy for the application image.
+  pullPolicy: "IfNotPresent"
+
+#! Settings for customizing the application ingress.
+
+applicationIngress:
+  #! Hostname prefix for the application ingress.
+  hostnamePrefix: "educates-api"
+
+#! Settings for customizing ingress details by which application is accessed.
+
+clusterIngress:
+  #! Ingress domain. DNS parent subdomain used for training portal and workshop
+  #! ingresses.
+  domain: "educates-local-dev.test"
+
+  #! Ingress class. Required when multiple ingress controllers exist and it is
+  #! necessary to use one which is not marked as the default. Note that any
+  #! workshop content which has users create ingresses will need to separately
+  #! handle that a non default ingress class needs to be used.
+  class: ""
+
+  #! Reference to TLS certificate for secure ingress. Must be a wildcard
+  #! certificate for children of the DNS parent ingress subdomain. A secret
+  #! copier will be created to copy the secret into the application namespace
+  #! if different from the namespace of the secret.
+
+  tlsCertificateRef:
+    namespace: ""
+    name: ""
+
+  #! Reference to CA certificate for verifying wildcard TLS certificate. A
+  #! secret copier will be created to copy the secret into the application
+  #! namespace if different from the namespace of the secret.
+
+  caCertificateRef:
+    namespace: ""
+    name: ""
