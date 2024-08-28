@@ -54,3 +54,76 @@ jobs:
             --registry-username=${{github.actor}} \
             --registry-password=${{secrets.GITHUB_TOKEN}} \
             -f bundle
+
+  release-artifacts:
+    name: Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - publish-package
+
+    steps:
+      - name: Calculate variables
+        shell: bash
+        run: |
+          REPOSITORY_TAG=${GITHUB_REF##*/}
+          if [[ "$REPOSITORY_TAG" == *-* ]]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+          echo "REPOSITORY_TAG=${REPOSITORY_TAG}" >>${GITHUB_ENV}
+          echo "PRERELEASE=${PRERELEASE}" >>${GITHUB_ENV}
+
+      - name: Generate YAML release files.
+        shell: bash
+        run: |
+          cp resources/rbac.yaml educates-lookup-service-installer-app-rbac.yaml
+          cat resources/app.yaml | sed -e "s/:main/:${{env.REPOSITORY_TAG}}/" > educates-lookup-service-installer-app.yaml
+
+      - name: Generate file checksums for CLI binaries
+        shell: bash
+        run: |
+          sha256sum educates-lookup-service-installer-app.yaml >> checksums.txt
+          sha256sum educates-lookup-service-installer-app-rbac.yaml >> checksums.txt
+          echo 'File Checksums' >> release-notes.md
+          echo '--------------' >> release-notes.md
+          echo '```' >> release-notes.md
+          cat checksums.txt >> release-notes.md
+          echo '```' >> release-notes.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: educates-lookup-service-installer-app.yaml
+          path: educates-lookup-service-installer-app.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: educates-lookup-service-installer-app-rbac.yaml
+          path: educates-lookup-service-installer-app-rbac.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checksums.txt
+          path: checksums.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes.md
+          path: release-notes.md
+
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{env.REPOSITORY_TAG}}
+          name: "educates-lookup-service:${{env.REPOSITORY_TAG}}"
+          draft: false
+          prerelease: ${{env.PRERELEASE}}
+          body_path: release-notes.md
+          files: |
+            checksums.txt
+            educates-lookup-service-installer-app.yaml
+            educates-lookup-service-installer-app-rbac.yaml
